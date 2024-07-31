@@ -51,7 +51,7 @@ impl IPPortPair {
                 break;
             }
             else {
-                output.push(self.ip[index]);
+                output.push(self.port[index]);
             }
         }
         output
@@ -62,6 +62,7 @@ impl IPPortPair {
             self.port[index] = port.chars().nth(index).unwrap();
             self.port[index+1] = '\0';
         }
+        assert!(self.port[0] != '\0');
     }
     pub fn set_ip(&mut self, ip: String) {
         assert!(ip.len() < ip_size-1);
@@ -97,22 +98,21 @@ async fn main() {
     let a = connections.clone();
     let b = connections.clone();
     app = app.fallback(get(|connection_info: ConnectInfo<SocketAddr>, request: Request<Body> | async move {
-        let mut vec = &mut a.lock().unwrap();
+        let mut vec = &mut a.lock().unwrap().clone();
         let mut ip = format!("{}", connection_info.0);
-        //println!("{:?}", vec);
         let index = vec.clone().into_iter().position(|x| {x.get_ip() == ip});
         match index {
             Some(v) => {
                 let path = vec[v].clone().get_port();
-                let new_path = "http://127.0.0.1:".to_string() + &path;
-                let original_path = request.headers();
-                println!("{:?}", original_path);
+                let original_path = request.uri().path();
+                let new_path = "http://127.0.0.1:".to_string() + &path + original_path;
                 println!("{}", new_path);
-                return Html("recognized user!");
+                let body = reqwest::get(new_path).await.unwrap().text().await.unwrap();
+                return Html(body);
             },
             None => {}
         }
-        return Html("Forwarder: Error");
+        return Html("Forwarder: Error".to_string());
     }));
 
     for path in config.as_array().unwrap() {
@@ -129,6 +129,7 @@ async fn main() {
             let ip_string = format!("{}", ip);
             let mut information = outer_information.clone();
             {
+                println!("Port: {}", information.clone().get_port());
                 let mut vec = &mut c.lock().unwrap();
                 let existing_ip = vec.clone().into_iter().position(|x| { x.get_ip() == ip_string });
                 match existing_ip {
