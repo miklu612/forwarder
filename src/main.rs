@@ -14,25 +14,25 @@ use std::sync::Mutex;
 use std::sync::Arc;
 
 
-const ip_size: usize = 40;
-const port_size: usize = 40;
+const IP_SIZE: usize = 40;
+const PORT_SIDE: usize = 40;
 
 #[derive(Debug, Clone)]
 struct IPPortPair {
-    ip: [char;ip_size],
-    port: [char;port_size],
+    ip: [char;IP_SIZE],
+    port: [char;PORT_SIDE],
 }
 
 impl IPPortPair {
     pub fn new() -> Self {
         Self {
-            ip: ['\0';ip_size],
-            port: ['\0';port_size]
+            ip: ['\0';IP_SIZE],
+            port: ['\0';PORT_SIDE]
         }
     }
     pub fn get_ip(self) -> String {
         let mut output = String::new();
-        for index in 0..ip_size-1 {
+        for index in 0..IP_SIZE-1 {
             if self.ip[index] == '\0' {
                 break;
             }
@@ -44,7 +44,7 @@ impl IPPortPair {
     }
     pub fn get_port(self) -> String {
         let mut output = String::new();
-        for index in 0..port_size-1 {
+        for index in 0..PORT_SIDE-1 {
             if self.port[index] == '\0' {
                 break;
             }
@@ -55,7 +55,7 @@ impl IPPortPair {
         output
     }
     pub fn set_port(&mut self, port: String) {
-        assert!(port.len() < port_size-1);
+        assert!(port.len() < PORT_SIDE-1);
         for index in 0..port.len() {
             self.port[index] = port.chars().nth(index).unwrap();
             self.port[index+1] = '\0';
@@ -63,7 +63,7 @@ impl IPPortPair {
         assert!(self.port[0] != '\0');
     }
     pub fn set_ip(&mut self, ip: String) {
-        assert!(ip.len() < ip_size-1);
+        assert!(ip.len() < IP_SIZE-1);
         for index in 0..ip.len() {
             self.ip[index] = ip.chars().nth(index).unwrap();
             self.ip[index+1] = '\0';
