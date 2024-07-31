@@ -10,8 +10,6 @@ use std::net::SocketAddr;
 use std::env;
 use std::fs;
 use serde_json::Value;
-use std::cell::Cell;
-use std::rc::Rc;
 use std::sync::Mutex;
 use std::sync::Arc;
 
@@ -93,44 +91,41 @@ async fn main() {
 
     let mut app = Router::new();
     // TODO: Add mutex
-    let mut connections = Arc::new(Mutex::new([();20].map(|_| IPPortPair::new())));
+    let connections = Arc::new(Mutex::new([();20].map(|_| IPPortPair::new())));
    
     let a = connections.clone();
     let b = connections.clone();
     app = app.fallback(get(|connection_info: ConnectInfo<SocketAddr>, request: Request<Body> | async move {
-        let mut vec = &mut a.lock().unwrap().clone();
-        let mut ip = format!("{}", connection_info.0);
+        let vec = &mut a.lock().unwrap().clone();
+        let ip = format!("{}", connection_info.0);
         let index = vec.clone().into_iter().position(|x| {x.get_ip() == ip});
-        match index {
-            Some(v) => {
-                let path = vec[v].clone().get_port();
-                let original_path = request.uri().path();
-                let new_path = "http://127.0.0.1:".to_string() + &path + original_path;
-                println!("{}", new_path);
-                let body = reqwest::get(new_path).await.unwrap().text().await.unwrap();
-                return Html(body);
-            },
-            None => {}
+        if let Some(v) = index {
+            let path = vec[v].clone().get_port();
+            let original_path = request.uri().path();
+            let new_path = "http://127.0.0.1:".to_string() + &path + original_path;
+            println!("{}", new_path);
+            let body = reqwest::get(new_path).await.unwrap().text().await.unwrap();
+            return Html(body);
         }
-        return Html("Forwarder: Error".to_string());
+        Html("Forwarder: Error".to_string())
     }));
 
     for path in config.as_array().unwrap() {
         // This part will just basically log the ip and store it. This ip is then used to track
         // where the user is and convert the paths according to that, since the site that is given
         // to the user won't have the /<site> prefix.
-        let og_port = path["port"].as_str().unwrap().clone();
+        let og_port = path["port"].as_str().unwrap();
         let mut outer_information = Box::new(IPPortPair::new());
         outer_information.set_port(og_port.to_string());
-        let new_path = "http://127.0.0.1:".to_string() + &path["port"].as_str().unwrap();
+        let new_path = "http://127.0.0.1:".to_string() + path["port"].as_str().unwrap();
         let c = connections.clone();
         let m_router: MethodRouter = get(|connect_info: ConnectInfo<SocketAddr>| async move {
             let ip = connect_info.0;
             let ip_string = format!("{}", ip);
-            let mut information = outer_information.clone();
+            let information = outer_information.clone();
             {
                 println!("Port: {}", information.clone().get_port());
-                let mut vec = &mut c.lock().unwrap();
+                let vec = &mut c.lock().unwrap();
                 let existing_ip = vec.clone().into_iter().position(|x| { x.get_ip() == ip_string });
                 match existing_ip {
                     Some(index) => {
@@ -151,7 +146,7 @@ async fn main() {
                 }
             }
             let body = reqwest::get(new_path).await.unwrap().text().await.unwrap();
-            return Html(body);
+            Html(body)
         });
         app = app.route(path["path"].as_str().unwrap(), get(m_router));
     }
