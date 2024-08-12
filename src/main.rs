@@ -15,19 +15,21 @@ use std::sync::Arc;
 
 
 const IP_SIZE: usize = 40;
-const PORT_SIDE: usize = 40;
+const PORT_SIZE: usize = 40;
 
+// The thread stuff needed a variable that's size is constant. Boxes could be potential fix for
+// this these two arrays.
 #[derive(Debug, Clone)]
 struct IPPortPair {
     ip: [char;IP_SIZE],
-    port: [char;PORT_SIDE],
+    port: [char;PORT_SIZE],
 }
 
 impl IPPortPair {
     pub fn new() -> Self {
         Self {
             ip: ['\0';IP_SIZE],
-            port: ['\0';PORT_SIDE]
+            port: ['\0';PORT_SIZE]
         }
     }
     pub fn get_ip(self) -> String {
@@ -44,7 +46,7 @@ impl IPPortPair {
     }
     pub fn get_port(self) -> String {
         let mut output = String::new();
-        for index in 0..PORT_SIDE-1 {
+        for index in 0..PORT_SIZE-1 {
             if self.port[index] == '\0' {
                 break;
             }
@@ -55,7 +57,7 @@ impl IPPortPair {
         output
     }
     pub fn set_port(&mut self, port: String) {
-        assert!(port.len() < PORT_SIDE-1);
+        assert!(port.len() < PORT_SIZE-1);
         for index in 0..port.len() {
             self.port[index] = port.chars().nth(index).unwrap();
             self.port[index+1] = '\0';
@@ -90,7 +92,7 @@ async fn main() {
     let config = config_data["config"].clone();
     let binding = config_data["url"].clone();
     let local_ip = Arc::new(Mutex::new(binding.as_str().unwrap()));
-    let root_url = Arc::new(Mutex::new("http://".to_string() + &local_ip.lock().unwrap().clone()));
+    let root_url = "http://".to_string() + &local_ip.lock().unwrap().clone();
 
     let mut app = Router::new();
     // TODO: Add mutex
@@ -106,7 +108,7 @@ async fn main() {
             if let Some(v) = index {
                 let path = vec[v].clone().get_port();
                 let original_path = request.uri().path();
-                let new_path = local_root_url.lock().unwrap().clone() + ":" + &path + original_path;
+                let new_path = local_root_url.clone() + ":" + &path + original_path;
                 println!("{}", new_path);
                 let body = reqwest::get(new_path).await.unwrap().text().await.unwrap();
                 return Html(body);
@@ -122,7 +124,7 @@ async fn main() {
         let og_port = path["port"].as_str().unwrap();
         let mut outer_information = Box::new(IPPortPair::new());
         outer_information.set_port(og_port.to_string());
-        let new_path = root_url.lock().unwrap().clone() + ":" + path["port"].as_str().unwrap();
+        let new_path = root_url.clone() + ":" + path["port"].as_str().unwrap();
         let c = connections.clone();
         let m_router: MethodRouter = get(|connect_info: ConnectInfo<SocketAddr>| async move {
             let ip = connect_info.0;
